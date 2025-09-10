@@ -1,76 +1,194 @@
--- ATM10 Mob Control Program
--- Advanced monitor setup, computer at bottom right
--- Outputs: bundled cable
+-- mob_control - ATM10 / CC:Tweaked
+-- 5x2 advanced monitor UI -> bundled cable outputs
+-- Touch buttons on the monitor to toggle each channel.
 
--- Auto-detect monitor
-local monitor = nil
-for _, side in ipairs({"top","bottom","left","right","front","back"}) do
-    if peripheral.getType(side) == "monitor" then
-        monitor = peripheral.wrap(side)
-        break
-    end
-end
+--------------------------
+-- CONFIGURE THESE SIDES --
+--------------------------
+local MONITOR_SIDE = "left"   -- side where your advanced monitor is attached
+local BUNDLED_SIDE = "back"   -- side with the bundled cable from the computer
 
-if not monitor then
-    print("No monitor found! Make sure an advanced monitor is connected.")
-    return
-end
+-------------------------------------------------
+-- Button layout & channel mapping (edit names) --
+-------------------------------------------------
+-- Left column (top->bottom), Right column (top->bottom)
+local labels_left  = { "Blaze", "Wither", "Creeper", "Other 1" }
+local labels_right = { "Iron Golem", "Witch", "Piglin", "Other 2" }
+local light_label  = "Light"
 
-local cableSide = "back" -- side where bundled cable is connected
+-- Bundled color per label (change as you like)
+-- Pick distinct colors so wiring is easy to follow.
+local channels = {
+  ["Blaze"]      = colors.white,
+  ["Wither"]     = colors.orange,
+  ["Creeper"]    = colors.magenta,
+  ["Other 1"]    = colors.lightBlue,
 
--- Monitor setup
-monitor.setTextScale(2)
-monitor.setBackgroundColor(colors.black)
-monitor.clear()
+  ["Iron Golem"] = colors.yellow,
+  ["Witch"]      = colors.lime,
+  ["Piglin"]     = colors.pink,
+  ["Other 2"]    = colors.gray,
 
--- Mob list and their bundled cable color
-local mobs = {
-    {name="Zombie", color=colors.red, state=false},
-    {name="Skeleton", color=colors.blue, state=false},
-    {name="Creeper", color=colors.green, state=false},
-    {name="Enderman", color=colors.purple, state=false},
-    {name="Spider", color=colors.orange, state=false},
-    {name="Witch", color=colors.yellow, state=false}
+  ["Light"]      = colors.red
 }
 
--- Draw buttons on monitor
-local function drawButtons()
-    monitor.clear()
-    for i, mob in ipairs(mobs) do
-        local bg = mob.state and colors.lime or colors.gray
-        monitor.setBackgroundColor(bg)
-        monitor.setCursorPos(1, i)
-        monitor.write(" " .. mob.name .. " ")
-    end
+-----------------------
+-- Peripheral checks --
+-----------------------
+local mon = peripheral.wrap(MONITOR_SIDE)
+if not mon then error("Monitor not found on side: "..MONITOR_SIDE) end
+if not mon.isColor() then error("Advanced monitor required (color).") end
+if not peripheral.isPresent(BUNDLED_SIDE) then
+  error("No peripheral on bundled side: "..BUNDLED_SIDE.." (need bundled cable)")
 end
 
--- Update bundled cable output
-local function updateOutput()
-    local output = 0
-    for _, mob in ipairs(mobs) do
-        if mob.state then
-            output = bit.bor(output, mob.color)
-        end
-    end
-    redstone.setBundledOutput(cableSide, output)
+mon.setTextScale(1)
+mon.setBackgroundColor(colors.black)
+mon.setTextColor(colors.white)
+mon.clear()
+
+----------------
+-- UI helpers --
+----------------
+local function centerText(x1, y1, x2, y2, text)
+  local w = x2 - x1 + 1
+  local h = y2 - y1 + 1
+  local tx = x1 + math.floor((w - #text) / 2)
+  local ty = y1 + math.floor(h / 2)
+  mon.setCursorPos(tx, ty)
+  mon.write(text)
 end
 
--- Handle monitor touch
-local function handleTouch(x, y)
-    if y <= #mobs then
-        local mob = mobs[y]
-        mob.state = not mob.state
-        drawButtons()
-        updateOutput()
-    end
+local function fillRect(x1, y1, x2, y2, col)
+  mon.setBackgroundColor(col)
+  for y = y1, y2 do
+    mon.setCursorPos(x1, y)
+    mon.write(string.rep(" ", x2 - x1 + 1))
+  end
 end
 
--- Initial draw
-drawButtons()
-updateOutput()
+local function drawFrame(x1, y1, x2, y2, col)
+  mon.setTextColor(col)
+  -- top/bottom
+  mon.setCursorPos(x1, y1); mon.write(string.rep("-", x2 - x1 + 1))
+  mon.setCursorPos(x1, y2); mon.write(string.rep("-", x2 - x1 + 1))
+  -- sides
+  for y = y1 + 1, y2 - 1 do
+    mon.setCursorPos(x1, y); mon.write("|")
+    mon.setCursorPos(x2, y); mon.write("|")
+  end
+  mon.setTextColor(colors.white)
+end
 
--- Main loop
+-------------------------
+-- Layout calculations --
+-------------------------
+local W, H = mon.getSize()
+
+-- Bottom "Light" bar height (>=3 for a nice target)
+local LIGHT_H  = math.max(3, math.floor(H * 0.18))
+local TOP_H    = H - LIGHT_H
+local ROWS     = 4
+local PER_ROW  = math.floor(TOP_H / ROWS)
+local EXTRA    = TOP_H - (PER_ROW * ROWS) -- distribute leftover lines
+
+-- Precompute rectangles for hit testing & drawing
+local buttons = {}  -- {label, x1,y1,x2,y2}
+
+local function pushBtn(lbl, x1,y1,x2,y2)
+  table.insert(buttons, { label = lbl, x1=x1, y1=y1, x2=x2, y2=y2 })
+end
+
+-- Build 4 rows × 2 columns
+local leftX1, leftX2   = 1, math.floor(W / 2)
+local rightX1, rightX2 = leftX2 + 1, W
+
+local curY = 1
+for i = 1, ROWS do
+  local h = PER_ROW + (i <= EXTRA and 1 or 0)
+  local y1, y2 = curY, curY + h - 1
+  pushBtn(labels_left[i],  leftX1,  y1, leftX2,  y2)
+  pushBtn(labels_right[i], rightX1, y1, rightX2, y2)
+  curY = y2 + 1
+end
+
+-- Bottom Light bar spans full width
+pushBtn(light_label, 1, TOP_H + 1, W, H)
+
+------------------------
+-- Bundled state utils --
+------------------------
+local function getBundled()
+  return redstone.getBundledOutput(BUNDLED_SIDE)
+end
+
+local function isOn(mask)
+  return bit32.band(getBundled(), mask) ~= 0
+end
+
+local function setMask(mask, on)
+  local cur = getBundled()
+  if on then
+    cur = bit32.bor(cur, mask)
+  else
+    cur = bit32.band(cur, bit32.bnot(mask))
+  end
+  redstone.setBundledOutput(BUNDLED_SIDE, cur)
+end
+
+local function toggle(label)
+  local mask = channels[label]
+  if not mask then return end
+  setMask(mask, not isOn(mask))
+end
+
+------------------
+-- Draw routine --
+------------------
+local COL_BG      = colors.black
+local COL_OFF     = colors.red
+local COL_ON      = colors.green
+local COL_FRAME   = colors.lightGray
+local COL_LIGHTON = colors.yellow
+
+local function drawAll()
+  mon.setBackgroundColor(COL_BG)
+  mon.clear()
+
+  for _,b in ipairs(buttons) do
+    local mask = channels[b.label]
+    local on   = mask and isOn(mask)
+    local col  = on and COL_ON or COL_OFF
+    if b.label == light_label and on then col = COL_LIGHTON end
+
+    fillRect(b.x1, b.y1, b.x2, b.y2, col)
+    drawFrame(b.x1, b.y1, b.x2, b.y2, COL_FRAME)
+    mon.setTextColor(colors.white)
+    centerText(b.x1, b.y1, b.x2, b.y2, b.label)
+  end
+end
+
+-----------------
+-- Event loop  --
+-----------------
+drawAll()
+
+-- Ensure we’re listening to touches from THIS monitor only
+local monName = peripheral.getName(mon)
+
 while true do
-    local event, side, x, y = os.pullEvent("monitor_touch")
-    handleTouch(x, y)
+  local ev, side, x, y = os.pullEvent()
+  if ev == "monitor_touch" and side == monName then
+    for _,b in ipairs(buttons) do
+      if x >= b.x1 and x <= b.x2 and y >= b.y1 and y <= b.y2 then
+        toggle(b.label)
+        drawAll()
+        break
+      end
+    end
+  elseif ev == "peripheral_detach" or ev == "peripheral" then
+    -- In case someone breaks/replaces the monitor; try to re-wrap & redraw
+    local new = peripheral.wrap(MONITOR_SIDE)
+    if new then mon = new; mon.setTextScale(1); drawAll() end
+  end
 end
