@@ -1,5 +1,5 @@
 -- Spawner and Light Control with Blundled Cable for a 5x2 Monitor Setup
-local monitor = peripheral.wrap("right") -- adjust side if needed
+local monitor = peripheral.wrap("bottom") -- adjust side if needed
 local redstoneSide = "back" -- side with bundled cable
 
 -- Set up the monitor
