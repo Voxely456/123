@@ -1,5 +1,5 @@
 -- Spawner Control with Bundled Cable and Debug
-local monitor = peripheral.wrap("right") -- adjust side if needed
+local monitor = peripheral.wrap("top") -- adjust side if needed
 local redstoneSide = "back" -- side with bundled cable
 
 monitor.setTextScale(0.5)
