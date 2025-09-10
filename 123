@@ -1,167 +1,46 @@
--- Robust bundled grid UI (auto-detect monitor + guarded APIs)
--- Place behind the computer: a bundled cable on side "back" (change if needed).
--- Each channel is a bundled color; update `channels` to change colors/names.
-
-local monitor = peripheral.find("monitor")
-if not monitor then
-  print("No monitor found. Attach an Advanced Monitor and try again.")
-  return
-end
-
--- helper: safe-check APIs
-local hasSetBg      = type(monitor.setBackgroundColor) == "function"
-local hasSetTextCol = type(monitor.setTextColor)       == "function"
-local hasSetScale   = type(monitor.setTextScale)       == "function"
-local hasClear      = type(monitor.clear)              == "function"
-local hasGetSize    = type(monitor.getSize)            == "function"
-
--- try to set text scale (safe)
-pcall(function() if hasSetScale then monitor.setTextScale(0.5) end end)
-
--- if setBackgroundColor exists, set to black before clearing
-pcall(function() if hasSetBg then monitor.setBackgroundColor(colors.black) end end)
-if hasClear then pcall(function() monitor.clear() end) end
-pcall(function() if hasSetTextCol then monitor.setTextColor(colors.white) end end)
-
--- channels: one bundled color per control
-local channels = {
-  {name = "Blaze",      color = colors.red},
-  {name = "Wither",     color = colors.blue},
-  {name = "Creeper",    color = colors.green},
-  {name = "Iron Golem", color = colors.yellow},
-  {name = "Witch",      color = colors.purple},
-  {name = "Piglin",     color = colors.orange},
-  {name = "Others 1",   color = colors.cyan},
-  {name = "Others 2",   color = colors.lime},
-  {name = "Others 3",   color = colors.gray},
-  {name = "Light",      color = colors.white}
-}
-
--- state table (indexed by channel index)
-local states = {}
-for i = 1, #channels do states[i] = false end
-
--- monitor size (fallback defaults)
-local monW, monH = 51, 19
-if hasGetSize then
-  local ok, w, h = pcall(function() return monitor.getSize() end)
-  if ok and w and h then monW, monH = w, h end
-end
-
--- grid parameters (2 columns x 5 rows fitting typical 5x2 monitor)
-local cols, rows = 2, math.ceil(#channels / 2)
-local padX, padY = 2, 1
-local boxW = math.floor((monW - (cols + 1) * padX) / cols)
-local boxH = math.max(3, math.floor((monH - (rows + 1) * padY) / rows))
-
--- ensure boxW not too small
-if boxW < 8 then boxW = 8 end
-
--- build button grid with coordinates
-local buttonGrid = {}
-do
-  local i = 1
-  for r = 1, rows do
-    for c = 1, cols do
-      if channels[i] then
-        local x1 = padX + (c - 1) * (boxW + padX)
-        local y1 = padY + (r - 1) * (boxH + padY)
-        buttonGrid[i] = { x1 = x1, y1 = y1, x2 = x1 + boxW - 1, y2 = y1 + boxH - 1 }
-        i = i + 1
-      end
-    end
-  end
-end
-
--- combine bitmasks for bundled output (use bit32 if available)
-local bitlib = bit32 or bit
-local function combineMasks(a, b)
-  if bitlib and type(bitlib.bor) == "function" then
-    return bitlib.bor(a, b)
-  else
-    return a + b
-  end
-end
-
--- write a rectangle (bg only) safely
-local function fillRect(x, y, w, h, bg)
-  for yy = y, y + h - 1 do
-    pcall(function()
-      if hasSetBg then monitor.setBackgroundColor(bg) end
-      monitor.setCursorPos(x, yy)
-      monitor.write(string.rep(" ", w))
-    end)
-  end
-  -- reset background to black (if supported)
-  pcall(function() if hasSetBg then monitor.setBackgroundColor(colors.black) end end)
-end
-
--- center text inside box
-local function writeCentered(x, y, w, h, text, fg)
-  local tx = x + math.floor((w - #text) / 2)
-  local ty = y + math.floor(h / 2)
-  pcall(function() if hasSetTextCol then monitor.setTextColor(fg) end end)
-  pcall(function() monitor.setCursorPos(tx, ty); monitor.write(text) end)
-  pcall(function() if hasSetTextCol then monitor.setTextColor(colors.white) end end)
-end
-
--- update bundled outputs: tries redstone.setBundledOutput, falls back to peripheral.wrap side.
-local bundledSide = "back" -- change if your bundled cable is on another side
-local function updateOutputs()
-  local out = 0
-  for i, ch in ipairs(channels) do
-    if states[i] then out = combineMasks(out, ch.color) end
-  end
-
-  -- try redstone API first
-  local ok = pcall(function() redstone.setBundledOutput(bundledSide, out) end)
-  if not ok then
-    -- fallback: try peripheral.wrap for bundled device
-    local ok2, per = pcall(function() return peripheral.wrap(bundledSide) end)
-    if ok2 and per and type(per.setBundledOutput) == "function" then
-      pcall(function() per.setBundledOutput(out) end)
-    else
-      -- show warning on bottom row of monitor
-      pcall(function()
-        monitor.setCursorPos(1, monH)
-        if hasSetTextCol then monitor.setTextColor(colors.yellow) end
-        monitor.write("WARNING: bundled redstone not available on side '"..tostring(bundledSide).."'.")
-        if hasSetTextCol then monitor.setTextColor(colors.white) end
-      end)
-    end
-  end
-end
-
 -- draw the entire UI
 local function drawUI()
   pcall(function() if hasSetBg then monitor.setBackgroundColor(colors.black) end end)
   pcall(function() monitor.clear() end)
+
   for i, btn in ipairs(buttonGrid) do
     local ch = channels[i]
     local active = states[i]
     local bg = active and colors.green or colors.red
+
+    -- draw button background
     fillRect(btn.x1, btn.y1, btn.x2 - btn.x1 + 1, btn.y2 - btn.y1 + 1, bg)
-    local label = ch.name .. (active and " ON" or " OFF")
-    writeCentered(btn.x1, btn.y1, btn.x2 - btn.x1 + 1, btn.y2 - btn.y1 + 1, label, colors.black)
-  end
-end
 
--- find which button was clicked
-local function getButtonAt(x, y)
-  for i, b in ipairs(buttonGrid) do
-    if x >= b.x1 and x <= b.x2 and y >= b.y1 and y <= b.y2 then return i end
-  end
-  return nil
-end
+    -- prepare label (shortened if needed)
+    local label = ch.name
+    if active then
+      label = label .. " [ON]"
+    else
+      label = label .. " [OFF]"
+    end
 
--- main loop
-drawUI()
-while true do
-  local event, side, x, y = os.pullEvent("monitor_touch")
-  local idx = getButtonAt(x, y)
-  if idx then
-    states[idx] = not states[idx]
-    updateOutputs()
-    drawUI()
+    -- make sure it fits
+    if #label > (btn.x2 - btn.x1 - 1) then
+      label = string.sub(label, 1, (btn.x2 - btn.x1 - 3)) .. "…"
+    end
+
+    -- center label horizontally
+    local boxW = btn.x2 - btn.x1 + 1
+    local boxH = btn.y2 - btn.y1 + 1
+    local tx = btn.x1 + math.floor((boxW - #label) / 2)
+    local ty = btn.y1 + math.floor(boxH / 2)
+
+    -- draw label
+    pcall(function()
+      if hasSetTextCol then monitor.setTextColor(colors.white) end
+      monitor.setCursorPos(tx, ty)
+      monitor.write(label)
+    end)
   end
+
+  -- reset colors
+  pcall(function() 
+    if hasSetBg then monitor.setBackgroundColor(colors.black) end 
+    if hasSetTextCol then monitor.setTextColor(colors.white) end
+  end)
 end
