@@ -1,4 +1,4 @@
--- mob_control v1.2 - ATM10 / CC:Tweaked
+-- mob_control v1.3 - ATM10 / CC:Tweaked
 -- Advanced monitor UI to toggle bundled redstone bits.
 
 --------------------------
@@ -70,15 +70,9 @@ local function fillRect(x1, y1, x2, y2, col)
   end
 end
 
+-- Removed drawFrame for clean rectangles
 local function drawFrame(x1, y1, x2, y2, col)
-  mon.setTextColor(col)
-  mon.setCursorPos(x1, y1); mon.write(string.rep("-", x2 - x1 + 1))
-  mon.setCursorPos(x1, y2); mon.write(string.rep("-", x2 - x1 + 1))
-  for y = y1 + 1, y2 - 1 do
-    mon.setCursorPos(x1, y); mon.write("|")
-    mon.setCursorPos(x2, y); mon.write("|")
-  end
-  mon.setTextColor(colors.white)
+  -- intentionally empty
 end
 
 -------------------------
@@ -130,7 +124,6 @@ end
 local COL_BG      = colors.black
 local COL_OFF     = colors.red
 local COL_ON      = colors.green
-local COL_FRAME   = colors.lightGray
 local COL_LIGHTON = colors.yellow
 
 local function drawAll()
@@ -142,8 +135,6 @@ local function drawAll()
     local col  = on and COL_ON or COL_OFF
     if b.label == light_label and on then col = COL_LIGHTON end
     fillRect(b.x1, b.y1, b.x2, b.y2, col)
-    drawFrame(b.x1, b.y1, b.x2, b.y2, COL_FRAME)
-    mon.setTextColor(colors.white)
     centerText(b.x1, b.y1, b.x2, b.y2, b.label)
   end
 end
