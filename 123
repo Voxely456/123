@@ -89,12 +89,19 @@ local function getButtonAt(x, y)
   return nil
 end
 
+-- ✅ Fixed updateOutputs function
 local function updateOutputs()
-  for i,ch in ipairs(channels) do
-    redstone.setBundledOutput(redstoneSide,
-      (redstone.getBundledOutput(redstoneSide) & ~ch.color) |
-      (states[i] and ch.color or 0))
+  local current = redstone.getBundledOutput(redstoneSide)
+  for i, ch in ipairs(channels) do
+    if states[i] then
+      -- Turn channel ON
+      current = bit.bor(current, ch.color)
+    else
+      -- Turn channel OFF
+      current = bit.band(current, bit.bnot(ch.color))
+    end
   end
+  redstone.setBundledOutput(redstoneSide, current)
 end
 
 -- Initial draw
