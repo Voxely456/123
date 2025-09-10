@@ -7,7 +7,7 @@
 -- Use exact side *strings*, e.g. "left", "right", "back", etc.
 -- You can set MONITOR_SIDE = "auto" to auto-find the first monitor.
 local MONITOR_SIDE = "auto"   -- auto-detect monitor
-local BUNDLED_SIDE = "auto"   -- side where the bundled cable is attached
+local BUNDLED_SIDE = "left"   -- side where the bundled cable is attached
 
 -- Labels shown on screen
 local labels_left  = { "Blaze", "Wither", "Creeper", "Other 1" }
