@@ -90,11 +90,15 @@ local function getButtonAt(x, y)
 end
 
 local function updateOutputs()
+  local current = redstone.getBundledOutput(redstoneSide)
   for i,ch in ipairs(channels) do
-    redstone.setBundledOutput(redstoneSide,
-      (redstone.getBundledOutput(redstoneSide) & ~ch.color) |
-      (states[i] and ch.color or 0))
+    if states[i] then
+      current = bit.bor(current, ch.color)   -- turn channel ON
+    else
+      current = bit.band(current, bit.bnot(ch.color)) -- turn channel OFF
+    end
   end
+  redstone.setBundledOutput(redstoneSide, current)
 end
 
 -- Initial draw
