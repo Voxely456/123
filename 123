@@ -35,7 +35,7 @@ local channels = {
 -----------------------
 -- Peripheral checks --
 -----------------------
-local mon = peripheral.wrap(MONITOR_SIDE)
+local mon = peripheral.wrap(left)
 if not mon then error("Monitor not found on side: "..MONITOR_SIDE) end
 if not mon.isColor() then error("Advanced monitor required (color).") end
 if not peripheral.isPresent(BUNDLED_SIDE) then
