@@ -1,23 +1,20 @@
--- mob_control - ATM10 / CC:Tweaked
--- 5x2 advanced monitor UI -> bundled cable outputs
--- Touch buttons on the monitor to toggle each channel.
+-- mob_control v1.1 - ATM10 / CC:Tweaked
+-- Advanced monitor UI to toggle bundled redstone bits.
 
 --------------------------
--- CONFIGURE THESE SIDES --
+-- CONFIG: set these
 --------------------------
-local MONITOR_SIDE = "top"   -- side where your advanced monitor is attached
-local BUNDLED_SIDE = "left"   -- side with the bundled cable from the computer
+-- Use exact side *strings*, e.g. "left", "right", "back", etc.
+-- You can set MONITOR_SIDE = "auto" to auto-find the first monitor.
+local MONITOR_SIDE = "auto"   -- auto-detect monitor
+local BUNDLED_SIDE = "auto"   -- side where the bundled cable is attached
 
--------------------------------------------------
--- Button layout & channel mapping (edit names) --
--------------------------------------------------
--- Left column (top->bottom), Right column (top->bottom)
+-- Labels shown on screen
 local labels_left  = { "Blaze", "Wither", "Creeper", "Other 1" }
 local labels_right = { "Iron Golem", "Witch", "Piglin", "Other 2" }
 local light_label  = "Light"
 
--- Bundled color per label (change as you like)
--- Pick distinct colors so wiring is easy to follow.
+-- Map each label to a bundled color bit.
 local channels = {
   ["Blaze"]      = colors.white,
   ["Wither"]     = colors.orange,
@@ -33,16 +30,24 @@ local channels = {
 }
 
 -----------------------
--- Peripheral checks --
+-- Peripheral wiring --
 -----------------------
-local mon = peripheral.wrap(left)
-if not mon then error("Monitor not found on side: "..MONITOR_SIDE) end
-if not mon.isColor() then error("Advanced monitor required (color).") end
-if not peripheral.isPresent(BUNDLED_SIDE) then
-  error("No peripheral on bundled side: "..BUNDLED_SIDE.." (need bundled cable)")
+local mon
+if MONITOR_SIDE == "auto" then
+    mon = peripheral.find("monitor")
+else
+    mon = peripheral.wrap(MONITOR_SIDE)
 end
 
-mon.setTextScale(1)
+assert(mon, "Monitor not found. Set MONITOR_SIDE correctly or use 'auto'.")
+assert(mon.isColor(), "Advanced monitor required.")
+
+-- Safe setTextScale
+local ok, err = pcall(function() mon.setTextScale(1) end)
+if not ok then
+    error("Failed to set text scale: " .. tostring(err))
+end
+
 mon.setBackgroundColor(colors.black)
 mon.setTextColor(colors.white)
 mon.clear()
@@ -69,10 +74,8 @@ end
 
 local function drawFrame(x1, y1, x2, y2, col)
   mon.setTextColor(col)
-  -- top/bottom
   mon.setCursorPos(x1, y1); mon.write(string.rep("-", x2 - x1 + 1))
   mon.setCursorPos(x1, y2); mon.write(string.rep("-", x2 - x1 + 1))
-  -- sides
   for y = y1 + 1, y2 - 1 do
     mon.setCursorPos(x1, y); mon.write("|")
     mon.setCursorPos(x2, y); mon.write("|")
@@ -85,21 +88,15 @@ end
 -------------------------
 local W, H = mon.getSize()
 
--- Bottom "Light" bar height (>=3 for a nice target)
 local LIGHT_H  = math.max(3, math.floor(H * 0.18))
 local TOP_H    = H - LIGHT_H
 local ROWS     = 4
 local PER_ROW  = math.floor(TOP_H / ROWS)
-local EXTRA    = TOP_H - (PER_ROW * ROWS) -- distribute leftover lines
+local EXTRA    = TOP_H - (PER_ROW * ROWS)
 
--- Precompute rectangles for hit testing & drawing
 local buttons = {}  -- {label, x1,y1,x2,y2}
+local function pushBtn(lbl, x1,y1,x2,y2) table.insert(buttons, {label=lbl,x1=x1,y1=y1,x2=x2,y2=y2}) end
 
-local function pushBtn(lbl, x1,y1,x2,y2)
-  table.insert(buttons, { label = lbl, x1=x1, y1=y1, x2=x2, y2=y2 })
-end
-
--- Build 4 rows × 2 columns
 local leftX1, leftX2   = 1, math.floor(W / 2)
 local rightX1, rightX2 = leftX2 + 1, W
 
@@ -111,35 +108,22 @@ for i = 1, ROWS do
   pushBtn(labels_right[i], rightX1, y1, rightX2, y2)
   curY = y2 + 1
 end
-
--- Bottom Light bar spans full width
 pushBtn(light_label, 1, TOP_H + 1, W, H)
 
 ------------------------
 -- Bundled state utils --
 ------------------------
-local function getBundled()
-  return redstone.getBundledOutput(BUNDLED_SIDE)
-end
-
-local function isOn(mask)
-  return bit32.band(getBundled(), mask) ~= 0
-end
-
+local function getBundled() return redstone.getBundledOutput(BUNDLED_SIDE) end
+local function isOn(mask)   return bit32.band(getBundled(), mask) ~= 0 end
 local function setMask(mask, on)
   local cur = getBundled()
-  if on then
-    cur = bit32.bor(cur, mask)
-  else
-    cur = bit32.band(cur, bit32.bnot(mask))
-  end
+  if on then cur = bit32.bor(cur, mask)
+  else       cur = bit32.band(cur, bit32.bnot(mask)) end
   redstone.setBundledOutput(BUNDLED_SIDE, cur)
 end
-
 local function toggle(label)
   local mask = channels[label]
-  if not mask then return end
-  setMask(mask, not isOn(mask))
+  if mask then setMask(mask, not isOn(mask)) end
 end
 
 ------------------
@@ -154,13 +138,11 @@ local COL_LIGHTON = colors.yellow
 local function drawAll()
   mon.setBackgroundColor(COL_BG)
   mon.clear()
-
   for _,b in ipairs(buttons) do
     local mask = channels[b.label]
     local on   = mask and isOn(mask)
     local col  = on and COL_ON or COL_OFF
     if b.label == light_label and on then col = COL_LIGHTON end
-
     fillRect(b.x1, b.y1, b.x2, b.y2, col)
     drawFrame(b.x1, b.y1, b.x2, b.y2, COL_FRAME)
     mon.setTextColor(colors.white)
@@ -172,23 +154,21 @@ end
 -- Event loop  --
 -----------------
 drawAll()
-
--- Ensure we’re listening to touches from THIS monitor only
 local monName = peripheral.getName(mon)
 
 while true do
-  local ev, side, x, y = os.pullEvent()
-  if ev == "monitor_touch" and side == monName then
-    for _,b in ipairs(buttons) do
-      if x >= b.x1 and x <= b.x2 and y >= b.y1 and y <= b.y2 then
-        toggle(b.label)
+  local ev, a, b, c = os.pullEvent()
+  if ev == "monitor_touch" and a == monName then
+    local x, y = b, c
+    for _,bt in ipairs(buttons) do
+      if x >= bt.x1 and x <= bt.x2 and y >= bt.y1 and y <= bt.y2 then
+        toggle(bt.label)
         drawAll()
         break
       end
     end
-  elseif ev == "peripheral_detach" or ev == "peripheral" then
-    -- In case someone breaks/replaces the monitor; try to re-wrap & redraw
-    local new = peripheral.wrap(MONITOR_SIDE)
-    if new then mon = new; mon.setTextScale(1); drawAll() end
+  elseif ev == "peripheral" or ev == "peripheral_detach" then
+    local new = (MONITOR_SIDE == "auto") and peripheral.find("monitor") or peripheral.wrap(MONITOR_SIDE)
+    if new then mon = new; mon.setTextScale(1); drawAll(); monName = peripheral.getName(mon) end
   end
 end
