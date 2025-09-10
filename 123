@@ -1,4 +1,4 @@
--- mob_control v1.3 - ATM10 / CC:Tweaked
+-- mob_control v1.4 - ATM10 / CC:Tweaked
 -- Advanced monitor UI to toggle bundled redstone bits.
 
 --------------------------
@@ -40,14 +40,14 @@ end
 assert(mon, "Monitor not found. Check MONITOR_SIDE or connect a monitor.")
 assert(mon.isColor(), "Advanced monitor required.")
 
--- Safe setTextScale
-local ok, err = pcall(function() mon.setTextScale(2) end)
+-- Safe setTextScale with bigger text
+local ok, err = pcall(function() mon.setTextScale(2) end) -- change 2 to 3 or 4 for bigger text
 if not ok then
     error("Failed to set text scale: " .. tostring(err))
 end
 
 mon.setBackgroundColor(colors.black)
-mon.setTextColor(colors.black)
+mon.setTextColor(colors.white)
 mon.clear()
 
 ----------------
@@ -57,7 +57,7 @@ local function centerText(x1, y1, x2, y2, text)
   local w = x2 - x1 + 1
   local h = y2 - y1 + 1
   local tx = x1 + math.floor((w - #text) / 2)
-  local ty = y1 + math.floor(h / 2)
+  local ty = y1 + math.floor((h - 1) / 2)  -- fixed vertical centering
   mon.setCursorPos(tx, ty)
   mon.write(text)
 end
@@ -165,7 +165,7 @@ while true do
     end
     if new then
         mon = new
-        mon.setTextScale(1)
+        mon.setTextScale(2) -- maintain bigger text
         drawAll()
         monName = peripheral.getName(mon)
     end
