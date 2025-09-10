@@ -1,7 +1,8 @@
--- Bundled cable control for spawners + light
+-- Bundled cable control with button grid UI
 -- Works with advanced computer + 5x2 monitor
+-- Make sure monitor is attached on "right", change if needed
 
-local monitor = peripheral.wrap("right") -- change if monitor is on another side
+local monitor = peripheral.wrap("right")
 local colors = colors -- shorthand
 
 -- Define channels (bundled colors)
@@ -35,46 +36,76 @@ local function updateOutputs()
     redstone.setBundledOutput("back", out) -- change side if needed
 end
 
--- Draw the UI
-local function drawUI()
-    monitor.clear()
-    monitor.setCursorPos(1, 1)
-    monitor.setTextScale(0.5) -- fit more text
+-- Button positions (grid layout)
+local buttonGrid = {}
+local cols, rows = 2, 5  -- 2 columns, 5 rows
+local boxW, boxH = 14, 3 -- button width & height
 
-    for i, c in ipairs(channels) do
-        local status = states[c.name] and "ON" or "OFF"
-        if states[c.name] then
-            monitor.setTextColor(colors.lime)
-        else
-            monitor.setTextColor(colors.red)
-        end
-        monitor.write(string.format("[%s: %s]", c.name, status))
-
-        local x, y = monitor.getCursorPos()
-        if x > 30 then -- wrap to next line
-            monitor.setCursorPos(1, y + 1)
-        else
-            monitor.write("  ")
+local function setupGrid()
+    local i = 1
+    for r = 1, rows do
+        for c = 1, cols do
+            if channels[i] then
+                local x1 = (c - 1) * (boxW + 2) + 2
+                local y1 = (r - 1) * (boxH + 1) + 2
+                local x2 = x1 + boxW - 1
+                local y2 = y1 + boxH - 1
+                buttonGrid[i] = {x1=x1, y1=y1, x2=x2, y2=y2, name=channels[i].name}
+                i = i + 1
+            end
         end
     end
-    monitor.setTextColor(colors.white)
 end
 
--- Toggle state on touch
-local function toggleAt(x, y)
-    -- simple mapping: each line has 3-4 items
-    local index = (y - 1) * 3 + math.ceil(x / 11)
-    if channels[index] then
-        local c = channels[index]
+-- Draw buttons
+local function drawUI()
+    monitor.setBackgroundColor(colors.black)
+    monitor.clear()
+    monitor.setTextScale(0.5)
+
+    for i, btn in ipairs(buttonGrid) do
+        local c = channels[i]
+        local active = states[c.name]
+
+        if active then
+            monitor.setBackgroundColor(colors.green)
+        else
+            monitor.setBackgroundColor(colors.red)
+        end
+
+        for y = btn.y1, btn.y2 do
+            monitor.setCursorPos(btn.x1, y)
+            monitor.write(string.rep(" ", boxW))
+        end
+
+        -- Centered label
+        monitor.setCursorPos(btn.x1 + 2, btn.y1 + 1)
+        monitor.setTextColor(colors.white)
+        monitor.write(c.name)
+    end
+    monitor.setBackgroundColor(colors.black)
+end
+
+-- Find which button was touched
+local function getButtonAt(x, y)
+    for i, btn in ipairs(buttonGrid) do
+        if x >= btn.x1 and x <= btn.x2 and y >= btn.y1 and y <= btn.y2 then
+            return i
+        end
+    end
+    return nil
+end
+
+-- Main loop
+setupGrid()
+drawUI()
+while true do
+    local e, side, x, y = os.pullEvent("monitor_touch")
+    local i = getButtonAt(x, y)
+    if i then
+        local c = channels[i]
         states[c.name] = not states[c.name]
         updateOutputs()
         drawUI()
     end
-end
-
--- Main loop
-drawUI()
-while true do
-    local e, side, x, y = os.pullEvent("monitor_touch")
-    toggleAt(x, y)
 end
