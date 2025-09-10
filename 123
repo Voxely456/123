@@ -101,7 +101,8 @@ local function updateOutputs()
   local output = 0
   for i, ch in ipairs(channels) do
     if states[i] then
-      output = output | 2^(ch.channel - 1)
+      -- Use the bit.bor function if the '|' operator is not supported
+      output = bit.bor(output, 2^(ch.channel - 1))
     end
   end
   redstone.setBundledOutput(redstoneSide, output)
