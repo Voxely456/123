@@ -1,10 +1,19 @@
 -- Spawner Control with Bundled Cable and Debug
-local monitor = peripheral.wrap("top") -- adjust side if needed
-local redstoneSide = "back" -- side with bundled cable
+local monitor = peripheral.wrap("right") -- adjust side if needed
 
-monitor.setTextScale(0.5)
+if monitor == nil then
+    error("No monitor found on the right side!")
+end
+
+-- Only set text scale if the monitor supports it
+if monitor.setTextScale then
+    monitor.setTextScale(0.5)
+end
+
 monitor.setBackgroundColor(colors.black)
 monitor.clear()
+
+local redstoneSide = "back" -- side with bundled cable
 
 -- button list
 local channels = {
