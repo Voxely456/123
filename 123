@@ -1,23 +1,24 @@
--- Spawner Control with Bundled Cable and Debug
-local monitor = peripheral.wrap("right") -- adjust side if needed
-local redstoneSide = "back" -- side with bundled cable
+-- Corrected Spawner Control with Bundled Cable
+local monitor = peripheral.wrap("right")
+local redstoneSide = "back"
 
 monitor.setTextScale(0.5)
 monitor.setBackgroundColor(colors.black)
 monitor.clear()
 
--- button list
+-- Button list and their corresponding bundled cable channel number (1-16)
+-- The bit for a channel is 2^(channel - 1)
 local channels = {
-  {name="Blaze", color=colors.red},
-  {name="Wither", color=colors.gray},
-  {name="Creeper", color=colors.green},
-  {name="Iron Golem", color=colors.orange},
-  {name="Witch", color=colors.purple},
-  {name="Piglin", color=colors.yellow},
-  {name="Other 1", color=colors.cyan},
-  {name="Other 2", color=colors.blue},
-  {name="Other 3", color=colors.lime},
-  {name="Light", color=colors.white},
+  {name="Blaze", channel=1},
+  {name="Wither", channel=2},
+  {name="Creeper", channel=3},
+  {name="Iron Golem", channel=4},
+  {name="Witch", channel=5},
+  {name="Piglin", channel=6},
+  {name="Other 1", channel=7},
+  {name="Other 2", channel=8},
+  {name="Other 3", channel=9},
+  {name="Light", channel=10},
 }
 
 local states = {}
@@ -25,25 +26,26 @@ for i=1, #channels do
   states[i] = false
 end
 
--- button grid layout
-local cols = 4
+-- Button grid layout
+local cols = 2 -- Changed to 2 to better fit all 10 buttons
 local rows = math.ceil(#channels / cols)
-local buttonW, buttonH = 9, 5
+local buttonW, buttonH = 20, 5
 local padding = 1
 
 local function drawButton(idx, x, y)
   local ch = channels[idx]
   local active = states[idx]
-  local color = active and ch.color or colors.lightGray
-
+  -- Use monitor colors for the button display, not bundled cable values
+  local color = active and colors.red or colors.gray
+  
   monitor.setBackgroundColor(color)
   for dy=0, buttonH-1 do
     monitor.setCursorPos(x, y+dy)
     monitor.write(string.rep(" ", buttonW))
   end
-
-  -- write label centered
-  monitor.setTextColor(colors.black)
+  
+  -- Write label centered
+  monitor.setTextColor(colors.white)
   monitor.setCursorPos(x + math.floor((buttonW - #ch.name)/2), y+math.floor(buttonH/2))
   monitor.write(ch.name)
 end
@@ -51,12 +53,12 @@ end
 local function drawUI()
   monitor.setBackgroundColor(colors.black)
   monitor.clear()
-
+  
   -- DEBUG HEADER
   monitor.setCursorPos(1,1)
   monitor.setTextColor(colors.white)
-  monitor.write("DEBUG: If you see this, text works")
-
+  monitor.write("Spawner Control Interface")
+  
   local startY = 3 -- leave room for debug
   local idx = 1
   for r=0, rows-1 do
@@ -90,19 +92,18 @@ local function getButtonAt(x, y)
 end
 
 local function updateOutputs()
-  local current = redstone.getBundledOutput(redstoneSide)
-  for i,ch in ipairs(channels) do
+  local output = 0
+  for i, ch in ipairs(channels) do
     if states[i] then
-      current = bit.bor(current, ch.color)   -- turn channel ON
-    else
-      current = bit.band(current, bit.bnot(ch.color)) -- turn channel OFF
+      output = output | 2^(ch.channel - 1)
     end
   end
-  redstone.setBundledOutput(redstoneSide, current)
+  redstone.setBundledOutput(redstoneSide, output)
 end
 
 -- Initial draw
 drawUI()
+updateOutputs()
 
 -- Main loop
 while true do
@@ -112,7 +113,7 @@ while true do
     states[idx] = not states[idx]
     updateOutputs()
     drawUI()
-
+    
     -- DEBUG line showing what was pressed
     monitor.setCursorPos(1,2)
     monitor.setBackgroundColor(colors.black)
