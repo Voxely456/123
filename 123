@@ -3,7 +3,7 @@
 -- Outputs: bundled cable
 
 -- Wrap peripherals
-local monitor = peripheral.wrap("right")  -- adjust if monitor is on a different side
+local monitor = peripheral.wrap("top")  -- adjust if monitor is on a different side
 local cableSide = "back"                  -- bundled cable side
 
 -- Monitor setup
