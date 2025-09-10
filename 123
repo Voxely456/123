@@ -1,10 +1,22 @@
 -- ATM10 Mob Control Program
--- Advanced monitor setup: 5x2, computer at bottom right
+-- Advanced monitor setup, computer at bottom right
 -- Outputs: bundled cable
 
--- Wrap peripherals
-local monitor = peripheral.wrap("top")  -- adjust if monitor is on a different side
-local cableSide = "back"                  -- bundled cable side
+-- Auto-detect monitor
+local monitor = nil
+for _, side in ipairs({"top","bottom","left","right","front","back"}) do
+    if peripheral.getType(side) == "monitor" then
+        monitor = peripheral.wrap(side)
+        break
+    end
+end
+
+if not monitor then
+    print("No monitor found! Make sure an advanced monitor is connected.")
+    return
+end
+
+local cableSide = "back" -- side where bundled cable is connected
 
 -- Monitor setup
 monitor.setTextScale(0.5)
@@ -24,7 +36,6 @@ local mobs = {
 -- Draw buttons on monitor
 local function drawButtons()
     monitor.clear()
-    monitor.setCursorPos(1,1)
     for i, mob in ipairs(mobs) do
         local bg = mob.state and colors.lime or colors.gray
         monitor.setBackgroundColor(bg)
