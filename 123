@@ -1,13 +1,11 @@
--- mob_control v1.1 - ATM10 / CC:Tweaked
+-- mob_control v1.2 - ATM10 / CC:Tweaked
 -- Advanced monitor UI to toggle bundled redstone bits.
 
 --------------------------
 -- CONFIG: set these
 --------------------------
--- Use exact side *strings*, e.g. "left", "right", "back", etc.
--- You can set MONITOR_SIDE = "auto" to auto-find the first monitor.
-local MONITOR_SIDE = "top"   -- auto-detect monitor
-local BUNDLED_SIDE = "left"   -- side where the bundled cable is attached
+local MONITOR_SIDE = "auto"   -- "auto" or a real side: "left", "right", "back"
+local BUNDLED_SIDE = "back"   -- side where the bundled cable is attached
 
 -- Labels shown on screen
 local labels_left  = { "Blaze", "Wither", "Creeper", "Other 1" }
@@ -39,7 +37,7 @@ else
     mon = peripheral.wrap(MONITOR_SIDE)
 end
 
-assert(mon, "Monitor not found. Set MONITOR_SIDE correctly or use 'auto'.")
+assert(mon, "Monitor not found. Check MONITOR_SIDE or connect a monitor.")
 assert(mon.isColor(), "Advanced monitor required.")
 
 -- Safe setTextScale
@@ -168,7 +166,17 @@ while true do
       end
     end
   elseif ev == "peripheral" or ev == "peripheral_detach" then
-    local new = (MONITOR_SIDE == "auto") and peripheral.find("monitor") or peripheral.wrap(MONITOR_SIDE)
-    if new then mon = new; mon.setTextScale(1); drawAll(); monName = peripheral.getName(mon) end
+    local new
+    if MONITOR_SIDE == "auto" then
+        new = peripheral.find("monitor")
+    else
+        new = peripheral.wrap(MONITOR_SIDE)
+    end
+    if new then
+        mon = new
+        mon.setTextScale(1)
+        drawAll()
+        monName = peripheral.getName(mon)
+    end
   end
 end
