@@ -41,13 +41,13 @@ assert(mon, "Monitor not found. Check MONITOR_SIDE or connect a monitor.")
 assert(mon.isColor(), "Advanced monitor required.")
 
 -- Safe setTextScale
-local ok, err = pcall(function() mon.setTextScale(3) end)
+local ok, err = pcall(function() mon.setTextScale(2) end)
 if not ok then
     error("Failed to set text scale: " .. tostring(err))
 end
 
 mon.setBackgroundColor(colors.black)
-mon.setTextColor(colors.white)
+mon.setTextColor(colors.black)
 mon.clear()
 
 ----------------
