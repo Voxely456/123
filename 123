@@ -6,7 +6,7 @@
 -- CONFIGURE THESE SIDES --
 --------------------------
 local MONITOR_SIDE = "top"   -- side where your advanced monitor is attached
-local BUNDLED_SIDE = "back"   -- side with the bundled cable from the computer
+local BUNDLED_SIDE = "left"   -- side with the bundled cable from the computer
 
 -------------------------------------------------
 -- Button layout & channel mapping (edit names) --
