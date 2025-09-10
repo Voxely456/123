@@ -174,7 +174,7 @@ while true do
     end
     if new then
         mon = new
-        mon.setTextScale(2.5)
+        mon.setTextScale(1)
         drawAll()
         monName = peripheral.getName(mon)
     end
