@@ -19,7 +19,7 @@ end
 local cableSide = "back" -- side where bundled cable is connected
 
 -- Monitor setup
-monitor.setTextScale(0.5)
+monitor.setTextScale(2)
 monitor.setBackgroundColor(colors.black)
 monitor.clear()
 
