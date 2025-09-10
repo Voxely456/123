@@ -1,57 +1,49 @@
--- Spawner and Light Control with Blundled Cable for a 5x2 Monitor Setup
-local monitor = peripheral.wrap("left") -- adjust side if needed
+-- Spawner Control with Bundled Cable and Debug
+local monitor = peripheral.wrap("right") -- adjust side if needed
 local redstoneSide = "back" -- side with bundled cable
 
--- Set up the monitor
 monitor.setTextScale(0.5)
 monitor.setBackgroundColor(colors.black)
 monitor.clear()
 
--- Define button list and corresponding bundled cable channels
--- The bit for a channel is 2^(channel - 1)
+-- button list
 local channels = {
-  {name="Blaze", channel=1},
-  {name="Wither", channel=2},
-  {name="Creeper", channel=3},
-  {name="Iron Golem", channel=4},
-  {name="Witch", channel=5},
-  {name="Piglin", channel=6},
-  {name="Others 1", channel=7},
-  {name="Others 2", channel=8},
-  {name="Others 3", channel=9},
-  {name="Others 4", channel=10},
-  {name="Others 5", channel=11},
-  {name="Light", channel=12},
+  {name="Blaze", color=colors.red},
+  {name="Wither", color=colors.gray},
+  {name="Creeper", color=colors.green},
+  {name="Iron Golem", color=colors.orange},
+  {name="Witch", color=colors.purple},
+  {name="Piglin", color=colors.yellow},
+  {name="Other 1", color=colors.cyan},
+  {name="Other 2", color=colors.blue},
+  {name="Other 3", color=colors.lime},
+  {name="Light", color=colors.white},
 }
 
--- Initialize button states to 'off'
 local states = {}
 for i=1, #channels do
   states[i] = false
 end
 
--- Button grid layout for a 5x2 monitor (255x38 characters)
-local cols = 2 -- Two columns to fit all buttons
+-- button grid layout
+local cols = 4
 local rows = math.ceil(#channels / cols)
+local buttonW, buttonH = 9, 5
 local padding = 1
-local monitorW, monitorH = monitor.getSize()
-local buttonW = math.floor((monitorW - padding * (cols + 1)) / cols)
-local buttonH = math.floor((monitorH - padding * (rows + 1) - 2) / rows) -- Leave space for header
 
 local function drawButton(idx, x, y)
   local ch = channels[idx]
   local active = states[idx]
-  -- Use monitor colors for the button display
-  local color = active and colors.red or colors.gray
-  
+  local color = active and ch.color or colors.lightGray
+
   monitor.setBackgroundColor(color)
   for dy=0, buttonH-1 do
     monitor.setCursorPos(x, y+dy)
     monitor.write(string.rep(" ", buttonW))
   end
-  
-  -- Write label centered
-  monitor.setTextColor(colors.white)
+
+  -- write label centered
+  monitor.setTextColor(colors.black)
   monitor.setCursorPos(x + math.floor((buttonW - #ch.name)/2), y+math.floor(buttonH/2))
   monitor.write(ch.name)
 end
@@ -59,18 +51,18 @@ end
 local function drawUI()
   monitor.setBackgroundColor(colors.black)
   monitor.clear()
-  
-  -- Header
+
+  -- DEBUG HEADER
   monitor.setCursorPos(1,1)
   monitor.setTextColor(colors.white)
-  monitor.write("Spawner & Light Control")
-  
-  local startY = 3 -- leave room for header
+  monitor.write("DEBUG: If you see this, text works")
+
+  local startY = 3 -- leave room for debug
   local idx = 1
   for r=0, rows-1 do
     for c=0, cols-1 do
       if idx <= #channels then
-        local x = padding + c*(buttonW+padding)
+        local x = 2 + c*(buttonW+padding)
         local y = startY + r*(buttonH+padding)
         drawButton(idx, x, y)
         idx = idx + 1
@@ -85,7 +77,7 @@ local function getButtonAt(x, y)
   for r=0, rows-1 do
     for c=0, cols-1 do
       if idx <= #channels then
-        local bx = padding + c*(buttonW+padding)
+        local bx = 2 + c*(buttonW+padding)
         local by = startY + r*(buttonH+padding)
         if x >= bx and x < bx+buttonW and y >= by and y < by+buttonH then
           return idx
@@ -98,19 +90,15 @@ local function getButtonAt(x, y)
 end
 
 local function updateOutputs()
-  local output = 0
-  for i, ch in ipairs(channels) do
-    if states[i] then
-      -- Use the bit.bor function if the '|' operator is not supported
-    output = bit.bor(output, 2^(ch.channel - 1))
-    end
+  for i,ch in ipairs(channels) do
+    redstone.setBundledOutput(redstoneSide,
+      (redstone.getBundledOutput(redstoneSide) & ~ch.color) |
+      (states[i] and ch.color or 0))
   end
-  redstone.setBundledOutput(redstoneSide, output)
 end
 
 -- Initial draw
 drawUI()
-updateOutputs()
 
 -- Main loop
 while true do
@@ -120,8 +108,13 @@ while true do
     states[idx] = not states[idx]
     updateOutputs()
     drawUI()
-    
-    -- Display debug info on the computer, not the monitor
-    print("Pressed: "..channels[idx].name.." = "..tostring(states[idx]))
+
+    -- DEBUG line showing what was pressed
+    monitor.setCursorPos(1,2)
+    monitor.setBackgroundColor(colors.black)
+    monitor.clearLine()
+    monitor.setCursorPos(1,2)
+    monitor.setTextColor(colors.white)
+    monitor.write("Pressed: "..channels[idx].name.." = "..tostring(states[idx]))
   end
 end
