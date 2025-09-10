@@ -1,136 +1,65 @@
--- Spawner Control with Bundled Cable and Debug
-local monitor = peripheral.wrap("right") -- adjust side if needed
+-- ATM10 Mob Control Program
+-- Advanced monitor setup: 5x2, computer at bottom right
+-- Outputs: bundled cable
 
-if monitor == nil then
-    error("No monitor found on the right side!")
-end
+-- Wrap peripherals
+local monitor = peripheral.wrap("right")  -- adjust if monitor is on a different side
+local cableSide = "back"                  -- bundled cable side
 
--- Only set text scale if the monitor supports it
-if monitor.setTextScale then
-    monitor.setTextScale(0.5)
-end
-
+-- Monitor setup
+monitor.setTextScale(0.5)
 monitor.setBackgroundColor(colors.black)
 monitor.clear()
 
-local redstoneSide = "back" -- side with bundled cable
-
--- button list
-local channels = {
-  {name="Blaze", color=colors.red},
-  {name="Wither", color=colors.gray},
-  {name="Creeper", color=colors.green},
-  {name="Iron Golem", color=colors.orange},
-  {name="Witch", color=colors.purple},
-  {name="Piglin", color=colors.yellow},
-  {name="Other 1", color=colors.cyan},
-  {name="Other 2", color=colors.blue},
-  {name="Other 3", color=colors.lime},
-  {name="Light", color=colors.white},
+-- Mob list and their bundled cable color
+local mobs = {
+    {name="Zombie", color=colors.red, state=false},
+    {name="Skeleton", color=colors.blue, state=false},
+    {name="Creeper", color=colors.green, state=false},
+    {name="Enderman", color=colors.purple, state=false},
+    {name="Spider", color=colors.orange, state=false},
+    {name="Witch", color=colors.yellow, state=false}
 }
 
-local states = {}
-for i=1, #channels do
-  states[i] = false
-end
-
--- button grid layout
-local cols = 4
-local rows = math.ceil(#channels / cols)
-local buttonW, buttonH = 9, 5
-local padding = 1
-
-local function drawButton(idx, x, y)
-  local ch = channels[idx]
-  local active = states[idx]
-  local color = active and ch.color or colors.lightGray
-
-  monitor.setBackgroundColor(color)
-  for dy=0, buttonH-1 do
-    monitor.setCursorPos(x, y+dy)
-    monitor.write(string.rep(" ", buttonW))
-  end
-
-  -- write label centered
-  monitor.setTextColor(colors.black)
-  monitor.setCursorPos(x + math.floor((buttonW - #ch.name)/2), y+math.floor(buttonH/2))
-  monitor.write(ch.name)
-end
-
-local function drawUI()
-  monitor.setBackgroundColor(colors.black)
-  monitor.clear()
-
-  -- DEBUG HEADER
-  monitor.setCursorPos(1,1)
-  monitor.setTextColor(colors.white)
-  monitor.write("DEBUG: If you see this, text works")
-
-  local startY = 3 -- leave room for debug
-  local idx = 1
-  for r=0, rows-1 do
-    for c=0, cols-1 do
-      if idx <= #channels then
-        local x = 2 + c*(buttonW+padding)
-        local y = startY + r*(buttonH+padding)
-        drawButton(idx, x, y)
-        idx = idx + 1
-      end
+-- Draw buttons on monitor
+local function drawButtons()
+    monitor.clear()
+    monitor.setCursorPos(1,1)
+    for i, mob in ipairs(mobs) do
+        local bg = mob.state and colors.lime or colors.gray
+        monitor.setBackgroundColor(bg)
+        monitor.setCursorPos(1, i)
+        monitor.write(" " .. mob.name .. " ")
     end
-  end
 end
 
-local function getButtonAt(x, y)
-  local startY = 3
-  local idx = 1
-  for r=0, rows-1 do
-    for c=0, cols-1 do
-      if idx <= #channels then
-        local bx = 2 + c*(buttonW+padding)
-        local by = startY + r*(buttonH+padding)
-        if x >= bx and x < bx+buttonW and y >= by and y < by+buttonH then
-          return idx
+-- Update bundled cable output
+local function updateOutput()
+    local output = 0
+    for _, mob in ipairs(mobs) do
+        if mob.state then
+            output = bit.bor(output, mob.color)
         end
-        idx = idx + 1
-      end
     end
-  end
-  return nil
+    redstone.setBundledOutput(cableSide, output)
 end
 
--- ✅ Fixed updateOutputs function
-local function updateOutputs()
-  local current = redstone.getBundledOutput(redstoneSide)
-  for i, ch in ipairs(channels) do
-    if states[i] then
-      -- Turn channel ON
-      current = bit.bor(current, ch.color)
-    else
-      -- Turn channel OFF
-      current = bit.band(current, bit.bnot(ch.color))
+-- Handle monitor touch
+local function handleTouch(x, y)
+    if y <= #mobs then
+        local mob = mobs[y]
+        mob.state = not mob.state
+        drawButtons()
+        updateOutput()
     end
-  end
-  redstone.setBundledOutput(redstoneSide, current)
 end
 
 -- Initial draw
-drawUI()
+drawButtons()
+updateOutput()
 
 -- Main loop
 while true do
-  local event, side, x, y = os.pullEvent("monitor_touch")
-  local idx = getButtonAt(x, y)
-  if idx then
-    states[idx] = not states[idx]
-    updateOutputs()
-    drawUI()
-
-    -- DEBUG line showing what was pressed
-    monitor.setCursorPos(1,2)
-    monitor.setBackgroundColor(colors.black)
-    monitor.clearLine()
-    monitor.setCursorPos(1,2)
-    monitor.setTextColor(colors.white)
-    monitor.write("Pressed: "..channels[idx].name.." = "..tostring(states[idx]))
-  end
+    local event, side, x, y = os.pullEvent("monitor_touch")
+    handleTouch(x, y)
 end
